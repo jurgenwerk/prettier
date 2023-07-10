@@ -14,6 +14,7 @@ import getPreferredQuote from "../utils/get-preferred-quote.js";
 import isNonEmptyArray from "../utils/is-non-empty-array.js";
 import UnexpectedNodeError from "../utils/unexpected-node-error.js";
 import htmlWhitespaceUtils from "../utils/html-whitespace-utils.js";
+import inferParser from "../utils/infer-parser.js";
 import { locStart, locEnd } from "./loc.js";
 import clean from "./clean.js";
 import { hasPrettierIgnore, isVoidElement, isWhitespaceNode } from "./utils.js";
@@ -764,11 +765,80 @@ function printBlockParams(node) {
   return ["as |", node.blockParams.join(" "), "|"];
 }
 
+function inferStyleParser(node, options) {
+  if (node.tag !== "style") {
+    return;
+  }
+  let lang = "css";
+  const attr = node.attributes.find(
+    (a) => a.type === "AttrNode" && a.name === "lang",
+  );
+  if (attr?.value.type === "TextNode") {
+    lang = attr.value.chars;
+  }
+
+  return inferParser(options, { language: lang });
+}
+
+function getNodeContent(node, options) {
+  if (node.children.length === 0) {
+    return "";
+  }
+  return options.originalText.slice(
+    node.children.at(0).loc.start.offset,
+    node.children.at(-1).loc.end.offset,
+  );
+}
+
+function embed(path, options) {
+  const { node } = path;
+
+  if (node.type === "ElementNode") {
+    const parser = inferStyleParser(node, options);
+    if (!parser) {
+      return;
+    }
+
+    return async (textToDoc, print) => {
+      const content = getNodeContent(node, options);
+      let isEmpty = /^\s*$/.test(content);
+      let doc = "";
+      if (!isEmpty) {
+        doc = await textToDoc(content, {
+          parser,
+          __embeddedInHtml: true,
+        });
+        isEmpty = doc === "";
+      }
+
+      const startingTag = group(printStartingTag(path, print));
+
+      const escapeNextElementNode =
+        options.htmlWhitespaceSensitivity === "ignore" &&
+        path.next?.type === "ElementNode"
+          ? softline
+          : "";
+
+      const endingTag = ["</", node.tag, ">"];
+
+      return [
+        startingTag,
+        isEmpty ? "" : hardline,
+        doc,
+        isEmpty ? "" : hardline,
+        indent(endingTag),
+        escapeNextElementNode,
+      ];
+    };
+  }
+}
+
 const printer = {
   print,
   massageAstNode: clean,
   hasPrettierIgnore,
   getVisitorKeys,
+  embed,
 };
 
 export default printer;
