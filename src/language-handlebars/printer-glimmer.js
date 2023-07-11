@@ -1,4 +1,5 @@
 import {
+  breakParent,
   dedent,
   fill,
   group,
@@ -812,23 +813,15 @@ function embed(path, options) {
       }
 
       const startingTag = group(printStartingTag(path, print));
-
-      const escapeNextElementNode =
-        options.htmlWhitespaceSensitivity === "ignore" &&
-        path.next?.type === "ElementNode"
-          ? softline
-          : "";
-
       const endingTag = ["</", node.tag, ">"];
 
-      return [
+      return group([
         startingTag,
-        isEmpty ? "" : hardline,
-        doc,
-        isEmpty ? "" : hardline,
-        indent(endingTag),
-        escapeNextElementNode,
-      ];
+        isEmpty ? "" : breakParent,
+        indent([softline, doc]),
+        softline,
+        endingTag,
+      ]);
     };
   }
 }
