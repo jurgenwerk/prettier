@@ -158,6 +158,10 @@ function print(path, options, print) {
       return [node.key, "=", print("value")];
 
     case "TextNode": {
+      if (path.parent.tag === "pre") {
+        return node.chars; // Don't format content in <pre>
+      }
+
       /* if `{{my-component}}` (or any text containing "{{")
        * makes it to the TextNode, it means it was escaped,
        * so let's print it escaped, ie.; `\{{my-component}}` */
