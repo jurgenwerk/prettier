@@ -766,19 +766,12 @@ function printBlockParams(node) {
   return ["as |", node.blockParams.join(" "), "|"];
 }
 
-function inferStyleParser(node, options) {
+function getCssParser(node, options) {
   if (node.tag !== "style") {
     return;
   }
-  let lang = "css";
-  const attr = node.attributes.find(
-    (a) => a.type === "AttrNode" && a.name === "lang",
-  );
-  if (attr?.value.type === "TextNode") {
-    lang = attr.value.chars;
-  }
 
-  return inferParser(options, { language: lang });
+  return inferParser(options, { language: "css" });
 }
 
 function getNodeContent(node, options) {
@@ -795,7 +788,9 @@ function embed(path, options) {
   const { node } = path;
 
   if (node.type === "ElementNode") {
-    const parser = inferStyleParser(node, options);
+    const parser = getCssParser(node, options);
+
+    // For now, we only support embedding CSS language (via `<style>` tags)
     if (!parser) {
       return;
     }
